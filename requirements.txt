@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+python-multipart
+langchain
+langchain-community
+langchain-openai
+langchain-google-genai
+langchain-text-splitters
+faiss-cpu
+pypdf
+gtts
+SpeechRecognition
+pydub
+python-dotenv
+aiofiles

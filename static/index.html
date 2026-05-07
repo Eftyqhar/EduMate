@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EduMate</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            indigo: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f8fafc;
+    }
+    
+    /* Smooth Scrollbar */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+    /* Loader Animation */
+    .loader {
+      display: inline-block;
+      width: 18px; height: 18px;
+      border: 2px solid #e2e8f0;
+      border-top-color: #4f46e5;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Pulse for Recording */
+    @keyframes pulse-ring {
+      0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
+      70% { box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    }
+    .recording-pulse { animation: pulse-ring 1.5s infinite; }
+    
+    /* Quiz Option Transitions */
+    .quiz-option { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+    
+    /* Toast Notification */
+    .toast-enter { animation: toast-slide-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+    .toast-exit { animation: toast-slide-out 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+    @keyframes toast-slide-in {
+      from { transform: translateY(100%); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    @keyframes toast-slide-out {
+      from { transform: translateY(0); opacity: 1; }
+      to { transform: translateY(100%); opacity: 0; }
+    }
+  </style>
+</head>
+<body class="text-slate-800 antialiased flex flex-col min-h-screen">
+
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+      <div class="flex items-center gap-4">
+        <div class="flex items-center justify-center w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl text-2xl shadow-inner">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-xl font-bold text-slate-900 tracking-tight">EduMate</h1>
+          <p class="text-xs sm:text-sm text-slate-500 font-medium">Upload, Summarize, Quiz, & Discuss</p>
+        </div>
+      </div>
+      <div class="hidden sm:flex items-center gap-2 bg-slate-100 text-slate-600 text-xs font-semibold px-3 py-1.5 rounded-full border border-slate-200">
+        <span class="w-2 h-2 rounded-full bg-slate-400" id="session-dot"></span>
+        Session: <span id="session-display" class="font-mono text-slate-500">None</span>
+      </div>
+      
+      <!-- Language Toggle (Fixed Duplication) -->
+      <div class="flex items-center gap-1 bg-slate-100 border border-slate-200 rounded-full p-1">
+        <button id="lang-en" onclick="setLang('en')" class="px-3 py-1 rounded-full text-xs font-bold bg-indigo-600 text-white transition-all">EN</button>
+        <button id="lang-bn" onclick="setLang('bn')" class="px-3 py-1 rounded-full text-xs font-bold text-slate-500 hover:text-slate-700 transition-all">বাং</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-grow w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+    <!-- Upload Card -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 text-center transition-colors duration-200" id="drop-zone">
+      <div class="w-16 h-16 mx-auto bg-indigo-50 rounded-full flex items-center justify-center text-indigo-500 mb-4 shadow-sm border border-indigo-100">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-8 h-8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m6.75 12-3-3m0 0-3 3m3-3v6m-1.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+        </svg>
+      </div>
+      <h2 class="text-lg font-bold text-slate-800 mb-2">Upload your study document</h2>
+      <p class="text-sm text-slate-500 mb-6">Drag & drop a PDF here, or click to browse files</p>
+      
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+        <button class="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-white border border-slate-300 text-slate-700 font-semibold rounded-xl hover:bg-slate-50 hover:text-indigo-600 transition-all shadow-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" onclick="document.getElementById('file-input').click()">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" /></svg>
+          Browse File
+        </button>
+        <button class="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition-all shadow-sm focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed" id="upload-btn" disabled onclick="uploadFile()">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" /></svg>
+          Upload & Index
+        </button>
+      </div>
+      <input type="file" id="file-input" class="hidden" accept=".pdf" onchange="onFileSelect(event)" />
+      
+      <div id="file-name" class="mt-4 text-sm font-medium text-indigo-600 min-h-[20px]"></div>
+      <div id="upload-status" class="mt-2 text-sm font-medium min-h-[20px]"></div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="bg-slate-100 p-1.5 rounded-2xl flex flex-wrap sm:flex-nowrap gap-1 overflow-x-auto shadow-inner border border-slate-200">
+      <button class="tab-btn flex-1 min-w-[120px] whitespace-nowrap py-2.5 px-4 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center justify-center gap-2 bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200/50" onclick="switchTab('summarize', this)">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4"><path fill-rule="evenodd" d="M4 4a2 2 0 0 1 2-2h4.586A2 2 0 0 1 12 2.586L15.414 6A2 2 0 0 1 16 7.414V16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4Zm2 6a1 1 0 0 1 1-1h6a1 1 0 1 1 0 2H7a1 1 0 0 1-1-1Zm1 3a1 1 0 1 0 0 2h6a1 1 0 1 0 0-2H7Z" clip-rule="evenodd" /></svg>
+        Summarize
+      </button>
+      <button class="tab-btn flex-1 min-w-[120px] whitespace-nowrap py-2.5 px-4 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center justify-center gap-2 text-slate-500 hover:text-slate-700 hover:bg-slate-200/50" onclick="switchTab('explain', this)">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4"><path d="M10 2a7 7 0 0 0-5.268 11.584l-1.442 2.885A1 1 0 0 0 4.184 18h11.632a1 1 0 0 0 .894-1.531l-1.442-2.885A7 7 0 0 0 10 2Zm0 13a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z" /></svg>
+        Explain
+      </button>
+      <button class="tab-btn flex-1 min-w-[120px] whitespace-nowrap py-2.5 px-4 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center justify-center gap-2 text-slate-500 hover:text-slate-700 hover:bg-slate-200/50" onclick="switchTab('quiz', this)">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4"><path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM9.855 7.149c.896-.289 1.956.12 2.226 1.026.24.81-.137 1.638-.853 2.052l-.46.265a.75.75 0 0 0-.369.648v.42a.75.75 0 0 1-1.5 0v-.42a2.25 2.25 0 0 1 1.107-1.944l.46-.265c.358-.206.545-.615.425-1.02-.136-.457-.665-.664-1.115-.518-.45.145-.71.62-.576 1.077a.75.75 0 0 1-1.44.435 2.5 2.5 0 0 1 1.845-2.756Zm.145 6.601a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd" /></svg>
+        Quiz
+      </button>
+      <button class="tab-btn flex-1 min-w-[120px] whitespace-nowrap py-2.5 px-4 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center justify-center gap-2 text-slate-500 hover:text-slate-700 hover:bg-slate-200/50" onclick="switchTab('ask', this)">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4"><path fill-rule="evenodd" d="M10 2c-5.523 0-10 4.477-10 10s4.477 10 10 10 10-4.477 10-10S15.523 2 10 2Zm-1.5 5.5a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm1.5 4.5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" /></svg>
+        Q&A
+      </button>
+      <button class="tab-btn flex-1 min-w-[120px] whitespace-nowrap py-2.5 px-4 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center justify-center gap-2 text-slate-500 hover:text-slate-700 hover:bg-slate-200/50" onclick="switchTab('voice', this)">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4"><path d="M7 4a3 3 0 0 1 6 0v6a3 3 0 1 1-6 0V4Z" /><path d="M5.5 9.643a.75.75 0 0 0-1.5 0V10c0 3.06 2.29 5.585 5.25 5.954V17.5h-1.5a.75.75 0 0 0 0 1.5h4.5a.75.75 0 0 0 0-1.5h-1.5v-1.546A6.001 6.001 0 0 0 16 10v-.357a.75.75 0 0 0-1.5 0V10a4.5 4.5 0 0 1-9 0v-.357Z" /></svg>
+        Voice
+      </button>
+    </div>
+
+    <!-- Content Panels Container -->
+    <div class="relative bg-white border border-slate-200 rounded-2xl shadow-sm min-h-[300px]">
+      
+      <!-- Summarize Panel -->
+      <div id="panel-summarize" class="panel-content block p-6 sm:p-8">
+        <div class="flex items-center justify-between mb-6">
+          <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+            <span class="p-1.5 bg-blue-50 text-blue-600 rounded-lg"><svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg></span>
+            Document Summary
+          </h3>
+          <button class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700 shadow-sm transition-all focus:ring-2 focus:ring-indigo-500 focus:outline-none" onclick="doSummarize()">
+            Generate Summary
+          </button>
+        </div>
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-5 text-slate-700 text-sm md:text-base leading-relaxed min-h-[120px] shadow-inner whitespace-pre-wrap" id="summary-result">
+          <span class="text-slate-400 italic">Click generate to create a concise summary of your document...</span>
+        </div>
+      </div>
+
+      <!-- Explain Panel -->
+      <div id="panel-explain" class="panel-content hidden p-6 sm:p-8">
+        <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-6">
+          <span class="p-1.5 bg-amber-50 text-amber-600 rounded-lg"><svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg></span>
+          Explain a Topic
+        </h3>
+        <div class="flex flex-col sm:flex-row gap-3 mb-6">
+          <input type="text" id="topic-input" class="flex-grow bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all placeholder-slate-400" placeholder="e.g. Photosynthesis, Newton's laws..." onkeydown="if(event.key==='Enter') doExplain()" />
+          <button class="bg-indigo-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-indigo-700 shadow-sm transition-all focus:ring-2 focus:ring-indigo-500 focus:outline-none whitespace-nowrap" onclick="doExplain()">
+            Explain
+          </button>
+        </div>
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-5 text-slate-700 text-sm md:text-base leading-relaxed min-h-[120px] shadow-inner whitespace-pre-wrap" id="explain-result">
+          <span class="text-slate-400 italic">Detailed explanation will appear here...</span>
+        </div>
+      </div>
+
+      <!-- Quiz Panel -->
+      <div id="panel-quiz" class="panel-content hidden p-6 sm:p-8">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8 pb-4 border-b border-slate-100">
+          <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+             <span class="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg"><svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg></span>
+             Interactive Quiz
+          </h3>
+          <div class="flex items-center gap-3 bg-slate-50 p-1.5 rounded-xl border border-slate-200">
+            <label class="text-sm font-semibold text-slate-600 pl-3">Questions:</label>
+            <select id="quiz-count" class="bg-white border border-slate-300 text-slate-800 font-medium py-1.5 px-3 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer">
+              <option value="3">3 Questions</option>
+              <option value="5" selected>5 Questions</option>
+              <option value="10">10 Questions</option>
+            </select>
+            <button class="bg-emerald-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-emerald-700 shadow-sm transition-all focus:ring-2 focus:ring-emerald-500 focus:outline-none" onclick="doQuiz()">
+              Generate
+            </button>
+          </div>
+        </div>
+        
+        <!-- Quiz Content Container -->
+        <div id="quiz-content-area" class="relative">
+          
+          <!-- Placeholder State -->
+          <div id="quiz-placeholder" class="text-center py-10 text-slate-400 block">
+            <svg class="w-16 h-16 mx-auto text-slate-200 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <p>Generate a quiz to test your knowledge.</p>
+          </div>
+
+          <!-- Loading State -->
+          <div id="quiz-loading" class="hidden flex-col items-center justify-center py-12 text-indigo-600">
+            <span class="loader border-t-indigo-600 mb-4 w-8 h-8"></span>
+            <p class="font-medium" id="quiz-loading-text">Crafting intelligent questions...</p>
+          </div>
+
+          <!-- Active Quiz State -->
+          <div id="quiz-active" class="hidden">
+            <!-- Progress Tracker -->
+            <div class="mb-6">
+              <div class="flex justify-between text-sm font-semibold text-slate-500 mb-2">
+                <span id="quiz-progress-text">Question 1 of 5</span>
+                <span id="quiz-score-text" class="text-indigo-600 font-bold">Score: 0</span>
+              </div>
+              <div class="w-full bg-slate-100 rounded-full h-2.5 shadow-inner">
+                <div id="quiz-progress-bar" class="bg-indigo-500 h-2.5 rounded-full transition-all duration-500 ease-out" style="width: 0%"></div>
+              </div>
+            </div>
+            
+            <!-- Question Container -->
+            <div id="quiz-question-container"></div>
+            
+            <!-- Action Area -->
+            <div class="mt-6 flex justify-end">
+              <button id="quiz-next-btn" class="hidden bg-indigo-600 text-white px-6 py-2.5 rounded-xl font-semibold shadow-sm hover:bg-indigo-700 transition-all focus:ring-2 focus:ring-indigo-500 focus:outline-none" onclick="nextQuizQuestion()">
+                Next Question
+              </button>
+            </div>
+          </div>
+
+          <!-- Results State -->
+          <div id="quiz-results" class="hidden py-4"></div>
+
+        </div>
+      </div>
+
+      <!-- Ask Panel -->
+      <div id="panel-ask" class="panel-content hidden p-6 sm:p-8">
+        <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-6">
+          <span class="p-1.5 bg-purple-50 text-purple-600 rounded-lg"><svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg></span>
+          Q&A
+        </h3>
+        <div class="flex flex-col sm:flex-row gap-3 mb-6">
+          <input type="text" id="ask-input" class="flex-grow bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all placeholder-slate-400" placeholder="Ask anything about the document..." onkeydown="if(event.key==='Enter') doAsk()" />
+          <button class="bg-indigo-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-indigo-700 shadow-sm transition-all focus:ring-2 focus:ring-indigo-500 focus:outline-none whitespace-nowrap" onclick="doAsk()">
+            Ask Question
+          </button>
+        </div>
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-5 text-slate-700 text-sm md:text-base leading-relaxed min-h-[120px] shadow-inner whitespace-pre-wrap" id="ask-result">
+          <span class="text-slate-400 italic">Answers will be displayed here...</span>
+        </div>
+      </div>
+
+      <!-- Voice Panel -->
+      <div id="panel-voice" class="panel-content hidden p-6 sm:p-8">
+        <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-8 text-center sm:text-left justify-center sm:justify-start">
+          <span class="p-1.5 bg-rose-50 text-rose-600 rounded-lg"><svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg></span>
+          Voice Q&A
+        </h3>
+        <div class="flex flex-col items-center max-w-lg mx-auto">
+          <div class="relative w-24 h-24 mb-6">
+            <button id="record-btn" class="absolute inset-0 w-full h-full bg-indigo-600 text-white rounded-full flex items-center justify-center text-4xl shadow-lg hover:bg-indigo-700 transition-colors z-10" onclick="toggleRecording()">
+              <svg id="mic-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-10 h-10"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" /></svg>
+              <svg id="stop-icon" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24" class="w-10 h-10 hidden"><path fill-rule="evenodd" d="M4.5 7.5a3 3 0 0 1 3-3h9a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3h-9a3 3 0 0 1-3-3v-9Z" clip-rule="evenodd" /></svg>
+            </button>
+          </div>
+          <p id="record-label" class="text-slate-500 font-medium mb-8">Click to start recording</p>
+          
+          <div class="w-full space-y-4">
+            <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-4 text-indigo-900 text-sm font-medium min-h-[50px] flex items-center shadow-inner" id="voice-transcript">
+              <span class="text-indigo-300 italic">Your spoken question...</span>
+            </div>
+            <div class="bg-slate-50 border border-slate-200 rounded-xl p-5 text-slate-700 text-sm leading-relaxed min-h-[100px] shadow-inner whitespace-pre-wrap" id="voice-answer">
+              <span class="text-slate-400 italic">AI Answer will appear here...</span>
+            </div>
+            <audio id="voice-audio" controls class="hidden w-full mt-4 rounded-full bg-slate-100"></audio>
+          </div>
+        </div>
+      </div>
+      
+    </div>
+  </main>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3"></div>
+
+  <script>
+    let sessionId = null;
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let isRecording = false;
+    let currentLang = 'en';
+
+    function setLang(lang) {
+      currentLang = lang;
+      const enBtn = document.getElementById('lang-en');
+      const bnBtn = document.getElementById('lang-bn');
+      if (!enBtn || !bnBtn) return;
+      enBtn.className = lang === 'en'
+        ? 'px-3 py-1 rounded-full text-xs font-bold bg-indigo-600 text-white transition-all'
+        : 'px-3 py-1 rounded-full text-xs font-bold text-slate-500 hover:text-slate-700 transition-all';
+      bnBtn.className = lang === 'bn'
+        ? 'px-3 py-1 rounded-full text-xs font-bold bg-indigo-600 text-white transition-all'
+        : 'px-3 py-1 rounded-full text-xs font-bold text-slate-500 hover:text-slate-700 transition-all';
+    }
+
+    // Toast Notification System
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      
+      const isErr = type === 'error';
+      const bg = isErr ? 'bg-red-50' : 'bg-slate-800';
+      const border = isErr ? 'border-red-200' : 'border-slate-700';
+      const text = isErr ? 'text-red-800' : 'text-white';
+      const icon = isErr 
+        ? `<svg class="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`
+        : `<svg class="w-5 h-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`;
+
+      toast.className = `flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg border ${bg} ${border} ${text} text-sm font-medium toast-enter min-w-[250px] max-w-sm`;
+      toast.innerHTML = `${icon} <span>${message}</span>`;
+      
+      container.appendChild(toast);
+      
+      setTimeout(() => {
+        toast.classList.replace('toast-enter', 'toast-exit');
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    }
+
+    // ── Drag & Drop ──────────────────────────────────────────────────────────
+    const dropZone = document.getElementById('drop-zone');
+    dropZone.addEventListener('dragover', e => { 
+      e.preventDefault(); 
+      dropZone.classList.add('border-indigo-400', 'bg-indigo-50/50'); 
+    });
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('border-indigo-400', 'bg-indigo-50/50');
+    });
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('border-indigo-400', 'bg-indigo-50/50');
+      const file = e.dataTransfer.files[0];
+      if (file) setFile(file);
+    });
+
+    function onFileSelect(e) { setFile(e.target.files[0]); }
+
+    function setFile(file) {
+      if (!file.name.endsWith('.pdf')) {
+        setStatus('Only PDF files are supported.', true); 
+        showToast('Only PDF files are supported.', 'error');
+        return;
+      }
+      document.getElementById('file-name').innerHTML = `
+        <span class="inline-flex items-center gap-2 px-3 py-1 bg-indigo-50 text-indigo-700 rounded-md border border-indigo-100">
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z" clip-rule="evenodd"></path></svg>
+          ${file.name}
+        </span>`;
+      document.getElementById('upload-btn').disabled = false;
+      window._selectedFile = file;
+      setStatus('');
+    }
+
+    // ── Upload ───────────────────────────────────────────────────────────────
+    async function uploadFile() {
+      if (!window._selectedFile) return;
+      sessionId = 'session_' + Math.random().toString(36).substring(2, 9).toUpperCase();
+      document.getElementById('session-display').textContent = sessionId;
+      document.getElementById('session-dot').classList.replace('bg-slate-400', 'bg-emerald-500');
+
+      const form = new FormData();
+      form.append('session_id', sessionId);
+      form.append('file', window._selectedFile);
+
+      setStatus('<span class="loader"></span> Uploading & indexing document...', false, true);
+      document.getElementById('upload-btn').disabled = true;
+
+      try {
+        const res = await fetch('/upload', { method: 'POST', body: form });
+        const data = await safeJson(res);
+        if (!res.ok) throw new Error(data.detail || 'Upload failed');
+        setStatus(`
+          <span class="text-emerald-600 flex items-center justify-center gap-1.5 mt-2">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            ${data.message || 'Ready for Analysis'}
+          </span>
+        `, false, true);
+        showToast('Document indexed successfully!');
+      } catch (e) {
+        setStatus(`
+          <span class="text-red-500 flex items-center justify-center gap-1.5 mt-2">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            ${e.message}
+          </span>
+        `, true, true);
+        showToast(e.message, 'error');
+        document.getElementById('upload-btn').disabled = false;
+      }
+    }
+
+    function setStatus(msg, isErr = false, isHtml = false) {
+      const el = document.getElementById('upload-status');
+      if (isHtml) el.innerHTML = msg; else el.textContent = msg;
+    }
+
+    // ── Tab Switch ───────────────────────────────────────────────────────────
+    function switchTab(name, btnElement) {
+      // Hide all panels
+      document.querySelectorAll('.panel-content').forEach(p => {
+        p.classList.add('hidden');
+        p.classList.remove('block');
+      });
+      // Reset all buttons
+      document.querySelectorAll('.tab-btn').forEach(t => {
+        t.className = 'tab-btn flex-1 min-w-[120px] whitespace-nowrap py-2.5 px-4 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center justify-center gap-2 text-slate-500 hover:text-slate-700 hover:bg-slate-200/50';
+      });
+      
+      // Show selected panel
+      document.getElementById('panel-' + name).classList.remove('hidden');
+      document.getElementById('panel-' + name).classList.add('block');
+      
+      // Highlight selected button
+      btnElement.className = 'tab-btn flex-1 min-w-[120px] whitespace-nowrap py-2.5 px-4 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center justify-center gap-2 bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200/50';
+    }
+
+    function requireSession() {
+      if (!sessionId) { 
+        showToast('Please upload and index a PDF first.', 'error');
+        // Flash the upload area
+        const dz = document.getElementById('drop-zone');
+        dz.classList.add('ring-2', 'ring-red-400', 'ring-offset-2');
+        setTimeout(() => dz.classList.remove('ring-2', 'ring-red-400', 'ring-offset-2'), 1000);
+        return false; 
+      }
+      return true;
+    }
+
+    function setLoading(elId, msg = 'Processing...') {
+      document.getElementById(elId).innerHTML = `
+        <div class="flex items-center text-indigo-600 font-medium">
+          <span class="loader"></span>${msg}
+        </div>
+      `;
+    }
+
+    async function safeJson(res) {
+      try { return await res.json(); }
+      catch { return { detail: `Server Error (${res.status})` }; }
+    }
+
+    // ── Summarize ────────────────────────────────────────────────────────────
+    async function doSummarize() {
+      if (!requireSession()) return;
+      setLoading('summary-result', 'Analyzing document and generating summary...');
+      try {
+        const res = await fetch(`/summarize/${sessionId}?lang=${currentLang}`);
+        const data = await safeJson(res);
+        if (!res.ok) throw new Error(data.detail);
+        document.getElementById('summary-result').innerHTML = `<div class="text-slate-800">${data.summary}</div>`;
+      } catch (e) {
+        document.getElementById('summary-result').innerHTML = `<span class="text-red-500 font-medium">❌ ${e.message}</span>`;
+      }
+    }
+
+    // ── Explain ──────────────────────────────────────────────────────────────
+    async function doExplain() {
+      if (!requireSession()) return;
+      const topic = document.getElementById('topic-input').value.trim();
+      if (!topic) { showToast('Please enter a topic to explain.', 'error'); return; }
+      
+      setLoading('explain-result', `Researching and explaining "${topic}"...`);
+      try {
+        const res = await fetch(`/explain/${sessionId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ topic, lang: currentLang })
+        });
+        const data = await safeJson(res);
+        if (!res.ok) throw new Error(data.detail);
+        document.getElementById('explain-result').innerHTML = `<div class="text-slate-800">${data.explanation}</div>`;
+      } catch (e) {
+        document.getElementById('explain-result').innerHTML = `<span class="text-red-500 font-medium">❌ ${e.message}</span>`;
+      }
+    }
+
+    // ── Ask ──────────────────────────────────────────────────────────────────
+    async function doAsk() {
+      if (!requireSession()) return;
+      const question = document.getElementById('ask-input').value.trim();
+      if (!question) return;
+      setLoading('ask-result', 'Searching document for the answer...');
+      try {
+        const res = await fetch(`/ask/${sessionId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question, lang: currentLang })
+        });
+        const data = await safeJson(res);
+        if (!res.ok) throw new Error(data.detail);
+        document.getElementById('ask-result').innerHTML = `<div class="text-slate-800"><strong>A:</strong> ${data.answer}</div>`;
+      } catch (e) {
+        document.getElementById('ask-result').innerHTML = `<span class="text-red-500 font-medium">❌ ${e.message}</span>`;
+      }
+    }
+
+    // ── Quiz ─────────────────────────────────────────────────────────────────
+    let quizState = {
+      questions: [],
+      currentIndex: 0,
+      score: 0
+    };
+
+    async function doQuiz() {
+      if (!requireSession()) return;
+      const n = document.getElementById('quiz-count').value;
+      
+      // UI Transitions
+      document.getElementById('quiz-placeholder').classList.add('hidden');
+      document.getElementById('quiz-active').classList.add('hidden');
+      document.getElementById('quiz-results').classList.add('hidden');
+      document.getElementById('quiz-loading').classList.remove('hidden');
+      document.getElementById('quiz-loading').classList.add('flex');
+      document.getElementById('quiz-loading-text').textContent = `Crafting ${n} intelligent questions...`;
+      
+      try {
+        const res = await fetch(`/quiz/${sessionId}?num_questions=${n}&lang=${currentLang}`);
+        const data = await safeJson(res);
+        if (!res.ok) throw new Error(data.detail);
+        
+        quizState = {
+          questions: data.quiz,
+          currentIndex: 0,
+          score: 0
+        };
+        
+        document.getElementById('quiz-loading').classList.add('hidden');
+        document.getElementById('quiz-loading').classList.remove('flex');
+        document.getElementById('quiz-active').classList.remove('hidden');
+        renderQuizQuestion();
+      } catch (e) {
+        document.getElementById('quiz-loading').classList.add('hidden');
+        document.getElementById('quiz-loading').classList.remove('flex');
+        document.getElementById('quiz-placeholder').classList.remove('hidden');
+        showToast(e.message, 'error');
+      }
+    }
+
+    function renderQuizQuestion() {
+      const q = quizState.questions[quizState.currentIndex];
+      const total = quizState.questions.length;
+      
+      // Update Progress UI
+      document.getElementById('quiz-progress-text').textContent = `Question ${quizState.currentIndex + 1} of ${total}`;
+      document.getElementById('quiz-score-text').textContent = `Score: ${quizState.score}`;
+      
+      // Progress bar (shows progress leading up to this question)
+      const progressPct = (quizState.currentIndex / total) * 100;
+      document.getElementById('quiz-progress-bar').style.width = `${progressPct}%`;
+      
+      // Hide next button initially
+      document.getElementById('quiz-next-btn').classList.add('hidden');
+
+      const container = document.getElementById('quiz-question-container');
+      container.innerHTML = ''; // Clear previous
+      
+      const card = document.createElement('div');
+      card.className = 'bg-white border border-slate-200 shadow-sm rounded-2xl overflow-hidden transition-all';
+      
+      // Header
+      const header = document.createElement('div');
+      header.className = 'bg-slate-50 border-b border-slate-200 px-6 py-5';
+      header.innerHTML = `
+        <span class="text-xs font-bold tracking-widest text-indigo-500 uppercase mb-2 block">Question ${quizState.currentIndex + 1}</span>
+        <h4 class="text-lg font-semibold text-slate-800 leading-snug">${q.question}</h4>
+      `;
+      card.appendChild(header);
+
+      // Options Container
+      const optionsBody = document.createElement('div');
+      optionsBody.className = 'p-6 space-y-3';
+      optionsBody.dataset.answered = 'false';
+
+      q.options.forEach(opt => {
+        const letter = opt[0]; // e.g., 'A', 'B'
+        const text = opt.substring(2).trim(); // remove 'A)' or 'A.'
+        
+        const row = document.createElement('div');
+        row.className = 'quiz-option group flex items-center border border-slate-200 rounded-xl p-3 sm:p-4 cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/50 bg-white';
+        row.dataset.letter = letter;
+        
+        row.innerHTML = `
+          <div class="letter-badge flex items-center justify-center w-8 h-8 rounded-lg bg-slate-100 text-slate-600 font-bold mr-4 border border-slate-200 group-hover:bg-indigo-100 group-hover:text-indigo-600 group-hover:border-indigo-200 transition-colors flex-shrink-0">
+            ${letter}
+          </div>
+          <div class="option-text text-sm font-medium text-slate-700 flex-grow">${text}</div>
+          <div class="status-icon opacity-0 w-6 h-6 ml-3 flex-shrink-0"></div>
+        `;
+
+        row.onclick = () => {
+          // Prevent multiple clicks
+          if (optionsBody.dataset.answered === 'true') return;
+          optionsBody.dataset.answered = 'true';
+          
+          // Disable visual hover states on all
+          optionsBody.querySelectorAll('.quiz-option').forEach(r => r.classList.remove('cursor-pointer', 'hover:border-indigo-400', 'hover:bg-indigo-50/50'));
+          
+          const isCorrect = (letter === q.answer);
+          
+          if (isCorrect) {
+            quizState.score++;
+            setOptionStyle(row, 'correct');
+            document.getElementById('quiz-score-text').textContent = `Score: ${quizState.score}`;
+          } else {
+            setOptionStyle(row, 'wrong');
+            // Find and highlight correct answer
+            optionsBody.querySelectorAll('.quiz-option').forEach(r => {
+              if (r.dataset.letter === q.answer) setOptionStyle(r, 'correct-revealed');
+            });
+          }
+          
+          // Update progress bar to include this completed question
+          const newProgressPct = ((quizState.currentIndex + 1) / total) * 100;
+          document.getElementById('quiz-progress-bar').style.width = `${newProgressPct}%`;
+
+          // Show Next Button
+          const nextBtn = document.getElementById('quiz-next-btn');
+          nextBtn.textContent = (quizState.currentIndex === total - 1) ? 'View Results' : 'Next Question';
+          nextBtn.classList.remove('hidden');
+        };
+        optionsBody.appendChild(row);
+      });
+      
+      card.appendChild(optionsBody);
+      container.appendChild(card);
+    }
+
+    function nextQuizQuestion() {
+      quizState.currentIndex++;
+      if (quizState.currentIndex < quizState.questions.length) {
+        renderQuizQuestion();
+      } else {
+        showQuizResults();
+      }
+    }
+
+    function showQuizResults() {
+      document.getElementById('quiz-active').classList.add('hidden');
+      const resContainer = document.getElementById('quiz-results');
+      resContainer.classList.remove('hidden');
+      
+      const total = quizState.questions.length;
+      const pct = Math.round((quizState.score / total) * 100);
+      
+      let message = "Good effort!";
+      let iconColor = "text-indigo-500";
+      let iconSvg = `<path stroke-linecap="round" stroke-linejoin="round" d="M15.362 5.214A8.252 8.252 0 0 1 12 21 8.25 8.25 0 0 1 6.038 7.047 8.287 8.287 0 0 0 9 9.601a8.983 8.983 0 0 1 3.361-6.867 8.21 8.21 0 0 0 3 2.48Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M12 18a3.75 3.75 0 0 0 .495-7.468 5.99 5.99 0 0 0-1.925 3.547 5.975 5.975 0 0 1-2.133-1.001A3.75 3.75 0 0 0 12 18Z" />`;
+      
+      if (pct >= 80) { 
+        message = "Excellent work!"; 
+        iconColor = "text-emerald-500"; 
+        iconSvg = `<path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" />`;
+      }
+      else if (pct < 50) { 
+        message = "Keep studying!"; 
+        iconColor = "text-amber-500";
+        iconSvg = `<path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />`;
+      }
+
+      resContainer.innerHTML = `
+        <div class="bg-white border border-slate-200 rounded-3xl p-10 shadow-sm max-w-md mx-auto text-center transform transition-all hover:-translate-y-1 hover:shadow-md">
+          <div class="w-20 h-20 mx-auto bg-slate-50 rounded-full flex items-center justify-center mb-6 border border-slate-100">
+            <svg class="w-10 h-10 ${iconColor}" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">${iconSvg}</svg>
+          </div>
+          <h4 class="text-2xl font-bold text-slate-800 mb-2">Quiz Complete!</h4>
+          <p class="text-slate-500 font-medium mb-8">${message}</p>
+          
+          <div class="bg-slate-50 rounded-2xl p-6 mb-8 border border-slate-100">
+            <div class="text-6xl font-black text-slate-800 mb-1">${quizState.score}<span class="text-3xl text-slate-400 font-bold">/${total}</span></div>
+            <div class="text-sm font-bold tracking-widest text-indigo-500 uppercase mt-2">${pct}% Accuracy</div>
+          </div>
+          
+          <button onclick="resetQuizView()" class="w-full bg-indigo-600 text-white font-semibold py-3.5 rounded-xl hover:bg-indigo-700 shadow-sm transition-all focus:ring-2 focus:ring-indigo-500 focus:outline-none flex items-center justify-center gap-2">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>
+            Try Another Quiz
+          </button>
+        </div>
+      `;
+    }
+
+    function resetQuizView() {
+      document.getElementById('quiz-results').classList.add('hidden');
+      document.getElementById('quiz-placeholder').classList.remove('hidden');
+    }
+
+    function setOptionStyle(el, state) {
+      const badge = el.querySelector('.letter-badge');
+      const text = el.querySelector('.option-text');
+      const iconContainer = el.querySelector('.status-icon');
+      
+      // Reset classes
+      el.className = 'quiz-option flex items-center border rounded-xl p-3 sm:p-4 transition-all';
+      badge.className = 'letter-badge flex items-center justify-center w-8 h-8 rounded-lg font-bold mr-4 border flex-shrink-0';
+      iconContainer.classList.remove('opacity-0');
+
+      if (state === 'correct') {
+        el.classList.add('bg-emerald-50', 'border-emerald-500', 'ring-1', 'ring-emerald-500');
+        badge.classList.add('bg-emerald-500', 'text-white', 'border-emerald-600');
+        text.classList.add('text-emerald-900');
+        iconContainer.innerHTML = `<svg class="text-emerald-600 w-full h-full" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>`;
+      } 
+      else if (state === 'wrong') {
+        el.classList.add('bg-rose-50', 'border-rose-500');
+        badge.classList.add('bg-rose-500', 'text-white', 'border-rose-600');
+        text.classList.add('text-rose-900');
+        iconContainer.innerHTML = `<svg class="text-rose-600 w-full h-full" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg>`;
+      }
+      else if (state === 'correct-revealed') {
+        el.classList.add('bg-white', 'border-emerald-500', 'border-dashed');
+        badge.classList.add('bg-emerald-100', 'text-emerald-700', 'border-emerald-300');
+        text.classList.add('text-emerald-700');
+        iconContainer.innerHTML = `<svg class="text-emerald-500 w-full h-full" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>`;
+      }
+    }
+
+    // ── Voice ────────────────────────────────────────────────────────────────
+    let audioContext, audioStream, scriptProcessor, allSamples = [];
+
+    function encodeWAV(samples, sampleRate) {
+      const buffer = new ArrayBuffer(44 + samples.length * 2);
+      const view = new DataView(buffer);
+      const writeStr = (o, s) => { for (let i = 0; i < s.length; i++) view.setUint8(o + i, s.charCodeAt(i)); };
+      writeStr(0, 'RIFF');
+      view.setUint32(4, 36 + samples.length * 2, true);
+      writeStr(8, 'WAVE'); writeStr(12, 'fmt ');
+      view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
+      view.setUint32(24, sampleRate, true); view.setUint32(28, sampleRate * 2, true);
+      view.setUint16(32, 2, true); view.setUint16(34, 16, true);
+      writeStr(36, 'data'); view.setUint32(40, samples.length * 2, true);
+      for (let i = 0; i < samples.length; i++) {
+        const s = Math.max(-1, Math.min(1, samples[i]));
+        view.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+      }
+      return new Blob([buffer], { type: 'audio/wav' });
+    }
+
+    async function toggleRecording() {
+      if (!requireSession()) return;
+      const btn = document.getElementById('record-btn');
+      const micIcon = document.getElementById('mic-icon');
+      const stopIcon = document.getElementById('stop-icon');
+      const label = document.getElementById('record-label');
+
+      if (!isRecording) {
+        try {
+          audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          audioContext = new AudioContext({ sampleRate: 16000 });
+          const source = audioContext.createMediaStreamSource(audioStream);
+          scriptProcessor = audioContext.createScriptProcessor(4096, 1, 1);
+          allSamples = [];
+          scriptProcessor.onaudioprocess = e => {
+            allSamples.push(...e.inputBuffer.getChannelData(0));
+          };
+          source.connect(scriptProcessor);
+          scriptProcessor.connect(audioContext.destination);
+
+          isRecording = true;
+          btn.classList.replace('bg-indigo-600', 'bg-rose-500');
+          btn.classList.replace('hover:bg-indigo-700', 'hover:bg-rose-600');
+          btn.classList.add('recording-pulse');
+          micIcon.classList.add('hidden');
+          stopIcon.classList.remove('hidden');
+          label.innerHTML = '<span class="text-rose-500 font-bold">Recording... click to stop</span>';
+        } catch(e) {
+          showToast('Microphone access denied or unavailable.', 'error');
+        }
+      } else {
+        scriptProcessor.disconnect();
+        audioContext.close();
+        audioStream.getTracks().forEach(t => t.stop());
+        isRecording = false;
+        btn.classList.replace('bg-rose-500', 'bg-indigo-600');
+        btn.classList.replace('hover:bg-rose-600', 'hover:bg-indigo-700');
+        btn.classList.remove('recording-pulse');
+        micIcon.classList.remove('hidden');
+        stopIcon.classList.add('hidden');
+        label.textContent = 'Processing audio...';
+        sendVoice();
+      }
+    }
+
+    async function sendVoice() {
+      const wavBlob = encodeWAV(new Float32Array(allSamples), 16000);
+      const form = new FormData();
+      form.append('audio', wavBlob, 'recording.wav');
+      form.append('lang', currentLang);
+
+      document.getElementById('voice-transcript').innerHTML = '<span class="loader border-t-indigo-500 w-5 h-5 ml-2"></span> <span class="ml-2">Transcribing...</span>';
+      document.getElementById('voice-answer').innerHTML = '<span class="text-slate-400 italic">Waiting for AI...</span>';
+      document.getElementById('voice-audio').classList.add('hidden');
+
+      try {
+        const res = await fetch(`/voice/${sessionId}`, { method: 'POST', body: form });
+        if (!res.ok) throw new Error((await safeJson(res)).detail);
+
+        const question = decodeURIComponent(res.headers.get('X-Question') || '');
+        const answer = decodeURIComponent(res.headers.get('X-Answer') || '');
+        
+        document.getElementById('voice-transcript').innerHTML = `<strong class="text-indigo-700 mr-2">Q:</strong> ${question}`;
+        document.getElementById('voice-answer').innerHTML = `<strong class="text-slate-800 mr-2">A:</strong> ${answer}`;
+
+        const audioBlob = await res.blob();
+        if(audioBlob.size > 0) {
+           const audioUrl = URL.createObjectURL(audioBlob);
+           const audio = document.getElementById('voice-audio');
+           audio.src = audioUrl;
+           audio.classList.remove('hidden');
+           audio.play();
+        }
+      } catch (e) {
+        document.getElementById('voice-transcript').innerHTML = `<span class="text-red-500">❌ Error transcribing audio.</span>`;
+        document.getElementById('voice-answer').innerHTML = e.message;
+        showToast(e.message, 'error');
+      }
+      document.getElementById('record-label').textContent = 'Click to start recording again';
+    }
+  </script>
+</body>
+</html>
