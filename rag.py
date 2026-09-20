@@ -1,7 +1,13 @@
 import os, httpx
+from dotenv import load_dotenv
+load_dotenv()
 
-OPENROUTER_API_KEY = "your_openrouter_api_key"
-GEMINI_API_KEY     = "your_gemini_api_key"
+# API Configuration (https://api.hcnsec.cn/)
+API_BASE_URL = os.getenv("API_BASE_URL", "https://api.hcnsec.cn/v1").rstrip("/")
+API_KEY = os.getenv("API_KEY", os.getenv("HCNSEC_API_KEY", "your_hcnsec_api_key"))
+MODEL_NAME = os.getenv("MODEL_NAME", "deepseek-chat")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "your_gemini_api_key")
+
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
@@ -15,8 +21,8 @@ from langchain_core.runnables import RunnablePassthrough
 from typing import Any, List, Optional
 
 
-class OpenRouterLLM(BaseChatModel):
-    model: str = "google/gemini-2.0-flash-001"
+class HcnsecLLM(BaseChatModel):
+    model: str = MODEL_NAME
     temperature: float = 0.3
 
     def _generate(self, messages: List[BaseMessage], stop: Optional[List[str]] = None, **kwargs: Any) -> ChatResult:
@@ -28,8 +34,8 @@ class OpenRouterLLM(BaseChatModel):
         }
         for attempt in range(5):
             r = httpx.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                headers={"Authorization": f"Bearer {OPENROUTER_API_KEY}", "Content-Type": "application/json"},
+                f"{API_BASE_URL}/chat/completions",
+                headers={"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"},
                 json=payload,
                 timeout=60,
             )
@@ -40,19 +46,21 @@ class OpenRouterLLM(BaseChatModel):
             r.raise_for_status()
             content = r.json()["choices"][0]["message"]["content"]
             return ChatResult(generations=[ChatGeneration(message=AIMessage(content=content))])
-        raise Exception("OpenRouter rate limit exceeded after retries. Please wait a moment and try again.")
+        raise Exception("API rate limit exceeded after retries. Please wait a moment and try again.")
 
     @property
     def _llm_type(self) -> str:
-        return "openrouter"
+        return "hcnsec"
 
+
+OpenRouterLLM = HcnsecLLM  # Backward compatibility alias
 
 embeddings = GoogleGenerativeAIEmbeddings(
     model="models/gemini-embedding-001",
     google_api_key=GEMINI_API_KEY
 )
 
-llm = OpenRouterLLM()
+llm = HcnsecLLM()
 vector_stores: dict[str, FAISS] = {}
 
 
