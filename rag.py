@@ -6,12 +6,12 @@ load_dotenv()
 API_BASE_URL = os.getenv("API_BASE_URL", "https://api.hcnsec.cn/v1").rstrip("/")
 API_KEY = os.getenv("API_KEY", os.getenv("HCNSEC_API_KEY", "your_hcnsec_api_key"))
 MODEL_NAME = os.getenv("MODEL_NAME", "deepseek-chat")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "your_gemini_api_key")
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
 
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import BaseMessage, AIMessage
 from langchain_core.outputs import ChatResult, ChatGeneration
@@ -55,9 +55,10 @@ class HcnsecLLM(BaseChatModel):
 
 OpenRouterLLM = HcnsecLLM  # Backward compatibility alias
 
-embeddings = GoogleGenerativeAIEmbeddings(
-    model="models/gemini-embedding-001",
-    google_api_key=GEMINI_API_KEY
+embeddings = HuggingFaceEmbeddings(
+    model_name=EMBEDDING_MODEL,
+    model_kwargs={"device": "cpu"},
+    encode_kwargs={"normalize_embeddings": True},
 )
 
 llm = HcnsecLLM()
